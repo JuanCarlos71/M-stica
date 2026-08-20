@@ -3,6 +3,8 @@ export type TabType = 'inicio' | 'quiromancia' | 'tarot' | 'astrologia';
 export interface UserProfile {
   id: string;
   fullName: string;
+  email?: string;
+  isGoogleAuth?: boolean;
   birthDate: string; // YYYY-MM-DD
   birthTime: string; // HH:mm
   birthPlace: string;

@@ -81,15 +81,20 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             id="user-profile-btn"
             onClick={onOpenProfile}
-            className="relative group p-0.5 rounded-full ring-1 ring-[#D4AF37]/60 hover:ring-[#D4AF37] transition-all shadow-[0_0_10px_rgba(212,175,55,0.2)]"
+            className="relative group p-0.5 rounded-full ring-1 ring-[#D4AF37]/60 hover:ring-[#D4AF37] transition-all shadow-[0_0_10px_rgba(212,175,55,0.2)] cursor-pointer"
             title="Perfil Místico & Lecturas Guardadas"
           >
             <img
-              src={user.avatarUrl || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCD24IsGvzjupfSOyVCfmLXRtCRBLhZtRSBdTk-9tRpoFhSYuooOzHKjYZR_rSFdwDFDiHBr4umfxyXUMjBADGE0LFi_D5OuVbkuqBucInxqqkrfywOdttPWF-n_dQnNXbjKEwmv1GPwxGik9qtHSPgm3w0t0UQ7_eW-NfoX7YgSNj7m_b2WxAR969GL7JS_DGNYi_fd3Su7tjDvG3_9GBeCOtSLFLKxemLV_QtoDrMKdPU-6ckKw'}
+              src={user.avatarUrl}
               alt={user.fullName || 'Perfil'}
+              referrerPolicy="no-referrer"
               className="w-8 h-8 rounded-full object-cover"
             />
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#D4AF37] border-2 border-[#050208] rounded-full"></span>
+            <span
+              className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 border-2 border-[#050208] rounded-full ${
+                user.isGoogleAuth ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : 'bg-[#D4AF37]'
+              }`}
+            ></span>
           </button>
         </div>
       </div>

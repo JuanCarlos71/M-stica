@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { UserProfile, PalmAnalysis, SavedReading } from '../types';
 import { analyzePalmData } from '../data/palmistryData';
 import { askMysticAI } from '../services/mysticAI';
@@ -24,6 +24,9 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
   const [scanStatusText, setScanStatusText] = useState('Alineando biomarcadores...');
   const [torchOn, setTorchOn] = useState(false);
   const [useLiveCamera, setUseLiveCamera] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isCameraLoading, setIsCameraLoading] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<PalmAnalysis | null>(null);
   const [aiDeepReading, setAiDeepReading] = useState<string | null>(null);
@@ -31,44 +34,111 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
   const [selectedLineInfo, setSelectedLineInfo] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const androidCameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Stop camera when unmounting
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-      }
-    };
-  }, []);
-
-  const startCamera = async () => {
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
-          audio: false
-        });
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-        }
-        setUseLiveCamera(true);
-      }
-    } catch (err) {
-      console.warn('Camera access denied or unavailable, using mystical viewport:', err);
-      setUseLiveCamera(false);
-    }
-  };
-
-  const stopCamera = () => {
+  // Stop camera when unmounting or toggling off
+  const stopCamera = useCallback(() => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current.getTracks().forEach(t => {
+        try {
+          t.stop();
+        } catch {
+          // ignore
+        }
+      });
       streamRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setUseLiveCamera(false);
+    setIsCameraLoading(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, [stopCamera]);
+
+  // Robust Camera Starter with multi-tier fallback for Android / iOS / Web
+  const startCamera = async (preferredFacing: 'environment' | 'user' = facingMode) => {
+    setIsCameraLoading(true);
+    setCameraError(null);
+    stopCamera();
+
+    // Check if mediaDevices is supported
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraError('Tu navegador no soporta cámara en vivo WebRTC. Usa la Cámara Nativa de Android.');
+      setIsCameraLoading(false);
+      return;
+    }
+
+    let stream: MediaStream | null = null;
+
+    // Attempt 1: Specific ideal facingMode and resolution
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: preferredFacing },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+    } catch {
+      // Attempt 2: Simple facingMode
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: preferredFacing },
+          audio: false
+        });
+      } catch {
+        // Attempt 3: Generic video constraint (any camera)
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+          });
+        } catch (err: any) {
+          console.warn('All camera constraints failed:', err);
+          let errorMsg = 'No se pudo acceder a la cámara.';
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            errorMsg = 'Permiso denegado. Concede acceso a la cámara o usa la Cámara Nativa de Android.';
+          } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            errorMsg = 'No se encontró ningún sensor de cámara disponible.';
+          }
+          setCameraError(errorMsg);
+          setIsCameraLoading(false);
+          setUseLiveCamera(false);
+          return;
+        }
+      }
+    }
+
+    if (stream) {
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.setAttribute('webkit-playsinline', 'true');
+        videoRef.current.muted = true;
+        
+        videoRef.current.onloadedmetadata = () => {
+          if (videoRef.current) {
+            videoRef.current.play().catch(e => console.warn('Video play error:', e));
+          }
+          setIsCameraLoading(false);
+          setUseLiveCamera(true);
+        };
+      } else {
+        setUseLiveCamera(true);
+        setIsCameraLoading(false);
+      }
+    }
   };
 
   const handleToggleCamera = () => {
@@ -79,16 +149,98 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
     }
   };
 
+  const handleFlipCamera = () => {
+    const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(nextFacing);
+    if (useLiveCamera) {
+      startCamera(nextFacing);
+    }
+  };
+
+  // Hardware Torch toggle (if supported by Android/Chrome) with fallback
+  const handleToggleTorch = async () => {
+    const nextTorch = !torchOn;
+    setTorchOn(nextTorch);
+    mysticAudio.playChime();
+
+    if (streamRef.current) {
+      const track = streamRef.current.getVideoTracks()[0];
+      if (track) {
+        try {
+          const capabilities: any = track.getCapabilities ? track.getCapabilities() : {};
+          if (capabilities.torch) {
+            await track.applyConstraints({
+              advanced: [{ torch: nextTorch } as any]
+            });
+          }
+        } catch (e) {
+          console.warn('Torch constraint error:', e);
+        }
+      }
+    }
+  };
+
+  // Capture frame from active live video
+  const captureFrameFromLiveVideo = (): string | null => {
+    if (!videoRef.current || !useLiveCamera) return null;
+    const video = videoRef.current;
+    const canvas = canvasRef.current || document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      // Draw image
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      return dataUrl;
+    }
+    return null;
+  };
+
+  // Handle Android Native Camera Capture / File Upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Haptic feedback for Android
+      if (navigator.vibrate) {
+        try {
+          navigator.vibrate([40, 60, 100]);
+        } catch {
+          // ignore
+        }
+      }
       const reader = new FileReader();
       reader.onload = event => {
-        setCapturedImage(event.target?.result as string);
+        const resultUrl = event.target?.result as string;
+        setCapturedImage(resultUrl);
+        // stop live camera if running to focus on photo
+        if (useLiveCamera) {
+          stopCamera();
+        }
         triggerScanAnalysis();
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  // Shutter action: captures frame from live camera if on, or triggers scan
+  const handleShutterPress = () => {
+    // Haptic feedback
+    if (navigator.vibrate) {
+      try {
+        navigator.vibrate([50, 50, 100]);
+      } catch {
+        // ignore
+      }
+    }
+
+    if (useLiveCamera) {
+      const snap = captureFrameFromLiveVideo();
+      if (snap) {
+        setCapturedImage(snap);
+      }
+    }
+    triggerScanAnalysis();
   };
 
   const triggerScanAnalysis = () => {
@@ -153,6 +305,28 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
 
   return (
     <div className="flex flex-col w-full min-h-full pb-24 relative bg-[#050208] text-gray-200">
+      {/* Hidden offscreen canvas for snapping live frames */}
+      <canvas ref={canvasRef} className="hidden" />
+
+      {/* Hidden Android Native Hardware Camera Input (capture="environment") */}
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        ref={androidCameraInputRef}
+        onChange={handleFileUpload}
+        className="hidden"
+      />
+
+      {/* Hidden Standard File Gallery Input */}
+      <input
+        type="file"
+        accept="image/*"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        className="hidden"
+      />
+
       {/* Hand Side Selector & Sub-header */}
       <div className="px-5 pt-2 pb-3 flex items-center justify-between z-20">
         <div className="flex bg-white/5 p-1 rounded-full border border-white/10 backdrop-blur-md shadow-inner">
@@ -162,7 +336,7 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
               setHandSide('left');
               mysticAudio.playChime();
             }}
-            className={`px-4 py-1.5 rounded-full text-[11px] font-sans uppercase tracking-wider font-semibold transition-all ${
+            className={`px-4 py-1.5 rounded-full text-[11px] font-sans uppercase tracking-wider font-semibold transition-all cursor-pointer ${
               handSide === 'left'
                 ? 'bg-[#D4AF37] text-black shadow-[0_0_12px_rgba(212,175,55,0.4)]'
                 : 'text-gray-400 hover:text-white'
@@ -176,7 +350,7 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
               setHandSide('right');
               mysticAudio.playChime();
             }}
-            className={`px-4 py-1.5 rounded-full text-[11px] font-sans uppercase tracking-wider font-semibold transition-all ${
+            className={`px-4 py-1.5 rounded-full text-[11px] font-sans uppercase tracking-wider font-semibold transition-all cursor-pointer ${
               handSide === 'right'
                 ? 'bg-[#D4AF37] text-black shadow-[0_0_12px_rgba(212,175,55,0.4)]'
                 : 'text-gray-400 hover:text-white'
@@ -191,9 +365,35 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
         </span>
       </div>
 
+      {/* Android High-Speed Camera Quick Bar */}
+      <div className="px-4 mb-2 z-20">
+        <div className="bg-gradient-to-r from-emerald-950/40 via-purple-950/40 to-indigo-950/40 border border-emerald-500/30 rounded-2xl p-2.5 flex items-center justify-between gap-2 shadow-md">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-7 h-7 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 shrink-0">
+              <span className="material-symbols-outlined text-base">photo_camera</span>
+            </span>
+            <div className="min-w-0">
+              <span className="text-[11px] font-bold text-white block truncate">
+                Cámara Rápida Android / HD
+              </span>
+              <span className="text-[9px] text-emerald-300 block truncate">
+                Enfoque instantáneo por hardware nativo
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => androidCameraInputRef.current?.click()}
+            className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all shadow-[0_0_10px_rgba(16,185,129,0.3)] shrink-0 flex items-center gap-1 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-sm">camera</span>
+            Tomar Foto
+          </button>
+        </div>
+      </div>
+
       {/* Viewfinder Container */}
       <div className="px-4 relative">
-        <div className="relative w-full h-[500px] max-h-[560px] rounded-[36px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.8)] bg-[#050208] border border-white/15">
+        <div className="relative w-full h-[470px] max-h-[520px] rounded-[36px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.8)] bg-[#050208] border border-white/15">
           {/* Live Camera Feed OR Default Mystical Feed */}
           <div className="absolute inset-0 z-0">
             {useLiveCamera ? (
@@ -215,7 +415,7 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
                 className="bg-cover bg-center w-full h-full opacity-60"
                 style={{
                   backgroundImage:
-                    "url('https://lh3.googleusercontent.com/aida-public/AB6AXuA_jW1o3Jh7e-odEIiATsqk3dKGHj0iMZPoi5PCdVC-MEyHwXTKNCssoEn9DEySggUpFAb2v5eA_ChwQQ-esOYnTzq0ZMbaKyrPMkqq8q7ZhZtEq4XafqYNuhu_Gbti2-OLjppSKmjiEPr-u4LroeNZxiUDLCNnM43wNe8oxR-T32ReSUQLLOuI-_oG5OOnRA3a4eUGhsxth4E4yo6YAq9kBIECnNOI4ct9cv6KRSJu5_niYvdoMQ')"
+                    "url('https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&w=800&q=80')"
                 }}
               ></div>
             )}
@@ -223,27 +423,61 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(5,2,8,0.85)_100%)] pointer-events-none"></div>
           </div>
 
+          {/* Camera Loading Spinner */}
+          {isCameraLoading && (
+            <div className="absolute inset-0 z-20 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center">
+              <div className="w-12 h-12 rounded-full border-3 border-[#D4AF37]/30 border-t-[#D4AF37] animate-spin mb-3"></div>
+              <span className="text-xs text-[#D4AF37] font-semibold">Conectando con el sensor de cámara...</span>
+            </div>
+          )}
+
+          {/* Camera Error Message Overlay */}
+          {cameraError && !useLiveCamera && (
+            <div className="absolute top-16 inset-x-4 z-20 bg-rose-950/90 border border-rose-500/50 rounded-2xl p-3 text-center backdrop-blur-md shadow-lg animate-fadeIn">
+              <span className="material-symbols-outlined text-rose-300 text-lg block mb-1">videocam_off</span>
+              <p className="text-[11px] text-rose-200 font-semibold mb-2">{cameraError}</p>
+              <button
+                onClick={() => androidCameraInputRef.current?.click()}
+                className="px-3 py-1 bg-white text-black text-[10px] font-bold uppercase tracking-wider rounded-lg shadow cursor-pointer"
+              >
+                Usar Cámara Nativa de Android
+              </button>
+            </div>
+          )}
+
           {/* Scanning Particles Grid Overlay */}
           <div className="absolute inset-0 z-0 opacity-20 mix-blend-screen bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.25)_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
 
           {/* Top Instructions Banner */}
-          <div className="absolute top-0 inset-x-0 z-20 pt-6 px-4 flex justify-center pointer-events-none">
-            <div className="bg-black/60 backdrop-blur-md px-5 py-2.5 rounded-full flex items-center gap-2.5 shadow-[0_4px_30px_rgba(0,0,0,0.6)] border border-white/15">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#D4AF37] animate-pulse"></div>
-              <span className="font-sans text-[11px] tracking-[0.2em] uppercase text-gray-200 font-semibold">
+          <div className="absolute top-0 inset-x-0 z-20 pt-4 px-4 flex justify-between items-center pointer-events-none">
+            <div className="bg-black/70 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 shadow-[0_4px_30px_rgba(0,0,0,0.6)] border border-white/15">
+              <div className="w-2 h-2 rounded-full bg-[#D4AF37] animate-pulse"></div>
+              <span className="font-sans text-[10px] tracking-[0.2em] uppercase text-gray-200 font-semibold">
                 {isScanning ? scanStatusText : 'ALINEA TU PALMA EN EL MARCO'}
               </span>
             </div>
+
+            {useLiveCamera && (
+              <div className="pointer-events-auto flex items-center gap-1.5 bg-black/60 backdrop-blur-md p-1 rounded-full border border-white/15">
+                <button
+                  onClick={handleFlipCamera}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                  title="Cambiar entre cámara trasera y frontal"
+                >
+                  <span className="material-symbols-outlined text-sm">flip_camera_android</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Center Palm Guide & SVG Lines */}
           <div className="absolute inset-0 z-10 flex items-center justify-center p-6 pointer-events-none">
-            <div className="relative w-full max-w-[250px] aspect-[2/3]">
+            <div className="relative w-full max-w-[240px] aspect-[2/3]">
               {/* Corner Targeting Brackets */}
-              <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-[#D4AF37] opacity-80"></div>
-              <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-[#D4AF37] opacity-80"></div>
-              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-[#D4AF37] opacity-80"></div>
-              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-[#D4AF37] opacity-80"></div>
+              <div className="absolute top-0 left-0 w-7 h-7 border-t-2 border-l-2 border-[#D4AF37] opacity-90"></div>
+              <div className="absolute top-0 right-0 w-7 h-7 border-t-2 border-r-2 border-[#D4AF37] opacity-90"></div>
+              <div className="absolute bottom-0 left-0 w-7 h-7 border-b-2 border-l-2 border-[#D4AF37] opacity-90"></div>
+              <div className="absolute bottom-0 right-0 w-7 h-7 border-b-2 border-r-2 border-[#D4AF37] opacity-90"></div>
 
               {/* Hand Outline SVG */}
               <svg
@@ -353,22 +587,19 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
       </div>
 
       {/* Bottom Controls (Flash, Glowing Shutter Fingerprint Orb, Camera Switch) */}
-      <div className="w-full pt-5 px-8 flex justify-between items-center bg-[#050208]">
+      <div className="w-full pt-4 px-6 flex justify-between items-center bg-[#050208]">
         {/* Flash / Torch Toggle */}
         <button
           id="flash-toggle-btn"
-          onClick={() => {
-            setTorchOn(!torchOn);
-            mysticAudio.playChime();
-          }}
-          className={`w-14 h-14 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-lg ${
+          onClick={handleToggleTorch}
+          className={`w-13 h-13 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-lg cursor-pointer ${
             torchOn
               ? 'bg-[#D4AF37] text-black shadow-[0_0_15px_#D4AF37]'
               : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white'
           }`}
-          title="Linterna / Foco de alta precisión"
+          title="Linterna / Foco"
         >
-          <span className="material-symbols-outlined text-[26px]">
+          <span className="material-symbols-outlined text-[24px]">
             {torchOn ? 'flash_on' : 'flash_off'}
           </span>
         </button>
@@ -376,7 +607,7 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
         {/* Shutter Button (Glowing Fingerprint Orb) */}
         <div
           id="palm-scan-shutter-btn"
-          onClick={triggerScanAnalysis}
+          onClick={handleShutterPress}
           className="relative group cursor-pointer"
         >
           {/* Outer Glow */}
@@ -387,10 +618,10 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
             style={{ animationDuration: '2.5s' }}
           ></div>
           {/* Core Button */}
-          <button className="relative w-24 h-24 rounded-full bg-gradient-to-br from-[#fae19c] to-[#D4AF37] shadow-[0_0_30px_rgba(212,175,55,0.6)] flex items-center justify-center transition-transform duration-200 active:scale-90 z-10 cursor-pointer">
+          <button className="relative w-22 h-22 rounded-full bg-gradient-to-br from-[#fae19c] to-[#D4AF37] shadow-[0_0_30px_rgba(212,175,55,0.6)] flex items-center justify-center transition-transform duration-200 active:scale-90 z-10 cursor-pointer">
             <div className="absolute inset-2 rounded-full bg-gradient-to-br from-[#D4AF37] to-[#b38e1b] shadow-[inset_0_-4px_8px_rgba(0,0,0,0.4)]"></div>
             <span
-              className="material-symbols-outlined relative z-20 text-black text-[42px] drop-shadow-md"
+              className="material-symbols-outlined relative z-20 text-black text-[38px] drop-shadow-md"
               style={{ fontVariationSettings: "'FILL' 1" }}
             >
               fingerprint
@@ -398,39 +629,41 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
           </button>
         </div>
 
-        {/* Switch Camera / Upload Photo Actions */}
-        <div className="flex items-center gap-2">
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-          <button
-            id="camera-switch-btn"
-            onClick={handleToggleCamera}
-            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-lg ${
-              useLiveCamera
-                ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(192,132,252,0.6)]'
-                : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white'
-            }`}
-            title="Activar cámara web / celular en vivo"
-          >
-            <span className="material-symbols-outlined text-[26px]">
-              {useLiveCamera ? 'videocam' : 'cameraswitch'}
-            </span>
-          </button>
-        </div>
+        {/* WebRTC Live Camera Switch Toggle */}
+        <button
+          id="camera-switch-btn"
+          onClick={handleToggleCamera}
+          className={`w-13 h-13 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-lg cursor-pointer ${
+            useLiveCamera
+              ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(192,132,252,0.6)]'
+              : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white'
+          }`}
+          title="Activar cámara continua en vivo"
+        >
+          <span className="material-symbols-outlined text-[24px]">
+            {useLiveCamera ? 'videocam' : 'videocam_off'}
+          </span>
+        </button>
       </div>
 
-      <div className="flex justify-center mt-3">
+      {/* Alternate Options Bar: Android Camera & Gallery */}
+      <div className="flex items-center justify-center gap-4 mt-3 px-4">
+        <button
+          onClick={() => androidCameraInputRef.current?.click()}
+          className="text-xs text-emerald-400 hover:brightness-125 flex items-center gap-1 uppercase tracking-wider font-semibold cursor-pointer py-1 px-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20"
+        >
+          <span className="material-symbols-outlined text-[16px]">photo_camera</span>
+          Cámara Android
+        </button>
+
+        <span className="text-gray-600">•</span>
+
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="text-xs text-[#D4AF37] hover:brightness-125 flex items-center gap-1.5 uppercase tracking-wider font-semibold cursor-pointer"
+          className="text-xs text-[#D4AF37] hover:brightness-125 flex items-center gap-1 uppercase tracking-wider font-semibold cursor-pointer py-1 px-2.5 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/20"
         >
-          <span className="material-symbols-outlined text-[16px]">upload_file</span>
-          Subir foto de tu mano desde la galería
+          <span className="material-symbols-outlined text-[16px]">image</span>
+          Galería
         </button>
       </div>
 
@@ -440,7 +673,7 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
           <div className="bg-[#0f0c1d] border border-white/15 rounded-[32px] p-6 max-w-lg w-full shadow-[0_0_50px_rgba(0,0,0,0.95)] max-h-[90vh] overflow-y-auto my-auto relative">
             <button
               onClick={() => setAnalysisResult(null)}
-              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-gray-300 hover:text-white transition-colors"
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-gray-300 hover:text-white transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-base">close</span>
             </button>

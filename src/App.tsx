@@ -12,6 +12,18 @@ import { SinastriaModal } from './components/SinastriaModal';
 import { WidgetsModal } from './components/WidgetsModal';
 import { exportFullMysticReportPDF } from './services/pdfExporter';
 import { calculateLifePathNumber, calculateExpressionNumber, calculateSoulUrgeNumber } from './data/numerologyData';
+import {
+  auth,
+  db,
+  doc,
+  setDoc,
+  getDoc,
+  collection,
+  getDocs,
+  deleteDoc,
+  onAuthStateChanged,
+  type FirebaseUser
+} from './lib/firebase';
 
 const DEFAULT_USER: UserProfile = {
   id: 'user-001',
@@ -26,7 +38,7 @@ const DEFAULT_USER: UserProfile = {
   expressionNumber: 11,
   soulUrgeNumber: 4,
   avatarUrl:
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuCD24IsGvzjupfSOyVCfmLXRtCRBLhZtRSBdTk-9tRpoFhSYuooOzHKjYZR_rSFdwDFDiHBr4umfxyXUMjBADGE0LFi_D5OuVbkuqBucInxqqkrfywOdttPWF-n_dQnNXbjKEwmv1GPwxGik9qtHSPgm3w0t0UQ7_eW-NfoX7YgSNj7m_b2WxAR969GL7JS_DGNYi_fd3Su7tjDvG3_9GBeCOtSLFLKxemLV_QtoDrMKdPU-6ckKw',
+    'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80',
   biometricEnabled: false,
   batterySaver: false,
   theme: 'dark',
@@ -56,6 +68,7 @@ const INITIAL_READINGS: SavedReading[] = [
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('inicio');
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
 
   // User Profile state with local persistence
   const [user, setUser] = useState<UserProfile>(() => {
@@ -94,7 +107,76 @@ export default function App() {
   const [activeNatalChart, setActiveNatalChart] = useState<NatalChart | null>(null);
   const [activePalmAnalysis, setActivePalmAnalysis] = useState<PalmAnalysis | null>(null);
 
-  // Sync profile changes to localStorage & recalc numerology
+  // Firebase Auth Listener and Firestore Sync
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      setFirebaseUser(fbUser);
+      if (fbUser) {
+        try {
+          const userDocRef = doc(db, 'users', fbUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const cloudProfile = userDocSnap.data() as Partial<UserProfile>;
+            setUser(prev => {
+              const updated = {
+                ...prev,
+                ...cloudProfile,
+                id: fbUser.uid,
+                fullName: cloudProfile.fullName || fbUser.displayName || prev.fullName,
+                email: fbUser.email || prev.email,
+                avatarUrl: cloudProfile.avatarUrl || fbUser.photoURL || prev.avatarUrl,
+                isGoogleAuth: true
+              };
+              localStorage.setItem('celestial_user_profile', JSON.stringify(updated));
+              return updated;
+            });
+          } else {
+            // Create user profile in Firestore
+            const initialDoc: Partial<UserProfile> = {
+              id: fbUser.uid,
+              fullName: fbUser.displayName || user.fullName,
+              email: fbUser.email || undefined,
+              avatarUrl: fbUser.photoURL || user.avatarUrl,
+              birthDate: user.birthDate,
+              birthTime: user.birthTime,
+              birthPlace: user.birthPlace,
+              zodiacSign: user.zodiacSign,
+              ascendant: user.ascendant,
+              moonSign: user.moonSign,
+              lifePathNumber: user.lifePathNumber,
+              expressionNumber: user.expressionNumber,
+              soulUrgeNumber: user.soulUrgeNumber,
+              isGoogleAuth: true
+            };
+            await setDoc(userDocRef, initialDoc, { merge: true });
+            setUser(prev => {
+              const updated = { ...prev, ...initialDoc, id: fbUser.uid };
+              localStorage.setItem('celestial_user_profile', JSON.stringify(updated));
+              return updated;
+            });
+          }
+
+          // Fetch cloud readings
+          const readingsCol = collection(db, 'users', fbUser.uid, 'readings');
+          const readingsSnap = await getDocs(readingsCol);
+          if (!readingsSnap.empty) {
+            const cloudReadings = readingsSnap.docs.map(d => ({
+              id: d.id,
+              ...d.data()
+            })) as SavedReading[];
+            setSavedReadings(cloudReadings);
+            localStorage.setItem('celestial_saved_readings', JSON.stringify(cloudReadings));
+          }
+        } catch (err) {
+          console.warn('Error syncing with Firestore:', err);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Sync profile changes to localStorage & recalculate numerology/astrology
   const handleUpdateUser = (updated: Partial<UserProfile>) => {
     setUser(prev => {
       const nextUser = { ...prev, ...updated };
@@ -110,8 +192,31 @@ export default function App() {
       } catch (err) {
         console.warn('Storage error', err);
       }
+
+      // Sync with Firestore if authenticated
+      if (firebaseUser) {
+        try {
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
+          setDoc(userDocRef, nextUser, { merge: true });
+        } catch (err) {
+          console.warn('Firestore user update error', err);
+        }
+      }
+
       return nextUser;
     });
+  };
+
+  const handleResetToGuest = () => {
+    const guestUser: UserProfile = {
+      ...DEFAULT_USER,
+      id: 'guest-' + Date.now(),
+      fullName: 'Iniciado Celestial',
+      isGoogleAuth: false,
+      email: undefined
+    };
+    setUser(guestUser);
+    localStorage.setItem('celestial_user_profile', JSON.stringify(guestUser));
   };
 
   const handleSaveReading = (reading: SavedReading) => {
@@ -122,6 +227,17 @@ export default function App() {
       } catch (err) {
         console.warn('Storage error', err);
       }
+
+      // Sync with Firestore if authenticated
+      if (firebaseUser) {
+        try {
+          const readingDocRef = doc(db, 'users', firebaseUser.uid, 'readings', reading.id);
+          setDoc(readingDocRef, reading, { merge: true });
+        } catch (err) {
+          console.warn('Firestore reading save error', err);
+        }
+      }
+
       return updated;
     });
   };
@@ -134,6 +250,17 @@ export default function App() {
       } catch (err) {
         console.warn('Storage error', err);
       }
+
+      // Sync with Firestore if authenticated
+      if (firebaseUser) {
+        try {
+          const readingDocRef = doc(db, 'users', firebaseUser.uid, 'readings', id);
+          deleteDoc(readingDocRef);
+        } catch (err) {
+          console.warn('Firestore reading delete error', err);
+        }
+      }
+
       return updated;
     });
   };
@@ -238,11 +365,13 @@ export default function App() {
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         user={user}
+        firebaseUser={firebaseUser}
         onUpdateUser={handleUpdateUser}
         savedReadings={savedReadings}
         onDeleteReading={handleDeleteReading}
         currentChart={activeNatalChart}
         currentPalm={activePalmAnalysis}
+        onResetToGuest={handleResetToGuest}
       />
 
       <SocialShareModal
