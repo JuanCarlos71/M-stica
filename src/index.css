@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-surface: #050208;
+    --color-surface-dim: #050208;
+    --color-surface-bright: #1f1b2e;
+    --color-surface-container-lowest: #020104;
+    --color-surface-container-low: #0f0c1d;
+    --color-surface-container: #141026;
+    --color-surface-container-high: #1a1630;
+    --color-surface-container-highest: #231e3d;
+    --color-surface-variant: #231e3d;
+    --color-on-surface: #f3f4f6;
+    --color-on-surface-variant: #9ca3af;
+    --color-primary: #D4AF37;
+    --color-on-primary: #000000;
+    --color-primary-container: #D4AF37;
+    --color-on-primary-container: #3c2f00;
+    --color-primary-fixed: #fae19c;
+    --color-primary-fixed-dim: #D4AF37;
+    --color-secondary: #c084fc;
+    --color-on-secondary: #3b0764;
+    --color-secondary-container: #4c1d95;
+    --color-secondary-fixed: #e9d5ff;
+    --color-secondary-fixed-dim: #c084fc;
+    --color-tertiary: #94a3b8;
+    --color-outline: #D4AF37;
+    --color-outline-variant: rgba(255, 255, 255, 0.1);
+    --color-error: #f87171;
+  }
+}
+
+@keyframes scan {
+  0% {
+    top: 5%;
+    opacity: 0.2;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    top: 92%;
+    opacity: 0.2;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(242, 202, 80, 0.2), inset 0 0 10px rgba(242, 202, 80, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(242, 202, 80, 0.5), inset 0 0 20px rgba(242, 202, 80, 0.25);
+  }
+}
+
+.animate-scan {
+  animation: scan 3s ease-in-out infinite alternate;
+}
+
+.animate-spin-slow {
+  animation: spinSlow 90s linear infinite;
+}
+
+.animate-spin-reverse {
+  animation: spinSlow 120s linear infinite reverse;
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+/* Glassmorphism helpers for Immersive UI */
+.glass-panel {
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-panel-gold {
+  background-color: rgba(15, 12, 29, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(212, 175, 55, 0.2);
+}
+
+.glass-panel-violet {
+  background-color: rgba(15, 12, 29, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(76, 29, 149, 0.3);
+  box-shadow: 0 8px 32px rgba(76, 29, 149, 0.25), inset 0 1px 0 rgba(192, 132, 252, 0.2);
+}
+
+.cosmic-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+}
+
+/* Card 3D Flip */
+.perspective-1000 {
+  perspective: 1000px;
+}
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}

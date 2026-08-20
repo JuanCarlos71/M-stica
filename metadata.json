@@ -1,0 +1,6 @@
+{
+  "name": "Celestial Alchemy",
+  "description": "Aplicación mística para quiromancia con escáner de manos, tarot virtual interactivo, carta astral astronómica en tiempo real, numerología pitagórica y sinastría estelar.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
