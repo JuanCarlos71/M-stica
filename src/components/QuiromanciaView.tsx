@@ -223,7 +223,7 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
     }
   };
 
-  // Shutter action: captures frame from live camera if on, or triggers scan
+  // Shutter action: captures photo / frame
   const handleShutterPress = () => {
     // Haptic feedback
     if (navigator.vibrate) {
@@ -239,8 +239,11 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
       if (snap) {
         setCapturedImage(snap);
       }
+      triggerScanAnalysis();
+    } else {
+      // Direct camera capture for mobile / Android
+      androidCameraInputRef.current?.click();
     }
-    triggerScanAnalysis();
   };
 
   const triggerScanAnalysis = () => {
@@ -363,32 +366,6 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
         <span className="text-[10px] text-[#D4AF37] uppercase tracking-[0.2em] font-semibold">
           {handSide === 'left' ? 'Karma & Potencial' : 'Presente & Futuro'}
         </span>
-      </div>
-
-      {/* Android High-Speed Camera Quick Bar */}
-      <div className="px-4 mb-2 z-20">
-        <div className="bg-gradient-to-r from-emerald-950/40 via-purple-950/40 to-indigo-950/40 border border-emerald-500/30 rounded-2xl p-2.5 flex items-center justify-between gap-2 shadow-md">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="w-7 h-7 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 shrink-0">
-              <span className="material-symbols-outlined text-base">photo_camera</span>
-            </span>
-            <div className="min-w-0">
-              <span className="text-[11px] font-bold text-white block truncate">
-                Cámara Rápida Android / HD
-              </span>
-              <span className="text-[9px] text-emerald-300 block truncate">
-                Enfoque instantáneo por hardware nativo
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={() => androidCameraInputRef.current?.click()}
-            className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all shadow-[0_0_10px_rgba(16,185,129,0.3)] shrink-0 flex items-center gap-1 cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-sm">camera</span>
-            Tomar Foto
-          </button>
-        </div>
       </div>
 
       {/* Viewfinder Container */}
@@ -586,29 +563,33 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
         </div>
       </div>
 
-      {/* Bottom Controls (Flash, Glowing Shutter Fingerprint Orb, Camera Switch) */}
-      <div className="w-full pt-4 px-6 flex justify-between items-center bg-[#050208]">
+      {/* Bottom Controls (Flash, Glowing Shutter Camera Button, Fingerprint Gallery Picker) */}
+      <div className="w-full pt-4 px-8 flex justify-between items-center bg-[#050208]">
         {/* Flash / Torch Toggle */}
         <button
           id="flash-toggle-btn"
           onClick={handleToggleTorch}
-          className={`w-13 h-13 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-lg cursor-pointer ${
+          className={`w-13 h-13 rounded-full flex flex-col items-center justify-center transition-all active:scale-95 shadow-lg cursor-pointer ${
             torchOn
               ? 'bg-[#D4AF37] text-black shadow-[0_0_15px_#D4AF37]'
               : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white'
           }`}
-          title="Linterna / Foco"
+          title="Linterna / Flash"
         >
           <span className="material-symbols-outlined text-[24px]">
             {torchOn ? 'flash_on' : 'flash_off'}
           </span>
+          <span className="text-[8px] uppercase tracking-wider font-semibold mt-0.5 opacity-80">
+            Flash
+          </span>
         </button>
 
-        {/* Shutter Button (Glowing Fingerprint Orb) */}
+        {/* Shutter Button (Glowing Camera Capture Button) */}
         <div
           id="palm-scan-shutter-btn"
           onClick={handleShutterPress}
           className="relative group cursor-pointer"
+          title="Tomar Foto de la Palma"
         >
           {/* Outer Glow */}
           <div className="absolute inset-0 rounded-full bg-[#D4AF37]/30 blur-xl group-hover:bg-[#D4AF37]/50 transition-all animate-pulse"></div>
@@ -624,46 +605,30 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
               className="material-symbols-outlined relative z-20 text-black text-[38px] drop-shadow-md"
               style={{ fontVariationSettings: "'FILL' 1" }}
             >
-              fingerprint
+              photo_camera
             </span>
           </button>
         </div>
 
-        {/* WebRTC Live Camera Switch Toggle */}
+        {/* Fingerprint / Search in Phone Photos */}
         <button
-          id="camera-switch-btn"
-          onClick={handleToggleCamera}
-          className={`w-13 h-13 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-lg cursor-pointer ${
-            useLiveCamera
-              ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(192,132,252,0.6)]'
-              : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white'
-          }`}
-          title="Activar cámara continua en vivo"
+          id="palm-fingerprint-gallery-btn"
+          onClick={() => {
+            mysticAudio.playChime();
+            fileInputRef.current?.click();
+          }}
+          className="w-13 h-13 rounded-full flex flex-col items-center justify-center transition-all active:scale-95 shadow-lg bg-white/5 text-[#D4AF37] border border-[#D4AF37]/30 hover:bg-white/10 hover:border-[#D4AF37] cursor-pointer shadow-[0_0_10px_rgba(212,175,55,0.15)]"
+          title="Buscar foto de la palma en tus fotos (Huella)"
         >
-          <span className="material-symbols-outlined text-[24px]">
-            {useLiveCamera ? 'videocam' : 'videocam_off'}
+          <span
+            className="material-symbols-outlined text-[24px]"
+            style={{ fontVariationSettings: "'FILL' 1" }}
+          >
+            fingerprint
           </span>
-        </button>
-      </div>
-
-      {/* Alternate Options Bar: Android Camera & Gallery */}
-      <div className="flex items-center justify-center gap-4 mt-3 px-4">
-        <button
-          onClick={() => androidCameraInputRef.current?.click()}
-          className="text-xs text-emerald-400 hover:brightness-125 flex items-center gap-1 uppercase tracking-wider font-semibold cursor-pointer py-1 px-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20"
-        >
-          <span className="material-symbols-outlined text-[16px]">photo_camera</span>
-          Cámara Android
-        </button>
-
-        <span className="text-gray-600">•</span>
-
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="text-xs text-[#D4AF37] hover:brightness-125 flex items-center gap-1 uppercase tracking-wider font-semibold cursor-pointer py-1 px-2.5 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/20"
-        >
-          <span className="material-symbols-outlined text-[16px]">image</span>
-          Galería
+          <span className="text-[8px] uppercase tracking-wider font-semibold mt-0.5 opacity-80">
+            Fotos
+          </span>
         </button>
       </div>
 
