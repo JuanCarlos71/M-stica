@@ -22,6 +22,7 @@ import {
   getDocs,
   deleteDoc,
   onAuthStateChanged,
+  checkRedirectResult,
   type FirebaseUser
 } from './lib/firebase';
 
@@ -109,6 +110,9 @@ export default function App() {
 
   // Firebase Auth Listener and Firestore Sync
   useEffect(() => {
+    // Check redirect auth result for mobile
+    checkRedirectResult().catch(err => console.warn('Redirect result check:', err));
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
