@@ -114,6 +114,32 @@ class MysticAudioEngine {
     }
   }
 
+  public playBell() {
+    try {
+      this.init();
+      if (!this.ctx) return;
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+
+      const bellOsc = this.ctx.createOscillator();
+      const bellGain = this.ctx.createGain();
+      
+      bellOsc.type = 'sine';
+      bellOsc.frequency.setValueAtTime(528, this.ctx.currentTime); // 528Hz Solfeggio frequency
+      bellOsc.frequency.exponentialRampToValueAtTime(264, this.ctx.currentTime + 1.2);
+
+      bellGain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+      bellGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 1.2);
+
+      bellOsc.connect(bellGain);
+      bellGain.connect(this.ctx.destination);
+
+      bellOsc.start();
+      bellOsc.stop(this.ctx.currentTime + 1.3);
+    } catch (e) {
+      // ignore
+    }
+  }
+
   public getStatus(): boolean {
     return this.isPlaying;
   }

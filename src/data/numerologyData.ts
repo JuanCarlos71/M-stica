@@ -197,6 +197,144 @@ export const SOUL_URGE_DETAILS: Record<number, { title: string; description: str
   33: { title: 'Deseo de Sanación Crística', description: 'Entrega voluntaria del corazón al florecimiento de la compasión y la paz en la Tierra.' }
 };
 
+export const PYTHAGOREAN_TABLE: { digit: number; letters: string[] }[] = [
+  { digit: 1, letters: ['A', 'J', 'S'] },
+  { digit: 2, letters: ['B', 'K', 'T'] },
+  { digit: 3, letters: ['C', 'L', 'U'] },
+  { digit: 4, letters: ['D', 'M', 'V'] },
+  { digit: 5, letters: ['E', 'N', 'W'] },
+  { digit: 6, letters: ['F', 'O', 'X'] },
+  { digit: 7, letters: ['G', 'P', 'Y'] },
+  { digit: 8, letters: ['H', 'Q', 'Z'] },
+  { digit: 9, letters: ['I', 'R'] }
+];
+
+export function getLetterValues(name: string): { char: string; value: number; isVowel: boolean }[] {
+  if (!name) return [];
+  const clean = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const result: { char: string; value: number; isVowel: boolean }[] = [];
+  
+  for (let i = 0; i < name.length; i++) {
+    const rawChar = name[i];
+    const c = clean[i] || rawChar.toLowerCase();
+    const val = PYTHAGOREAN_MAP[c] || 0;
+    const isVowel = VOWELS.has(c);
+    result.push({
+      char: rawChar,
+      value: val,
+      isVowel
+    });
+  }
+  return result;
+}
+
+export function calculatePersonalYear(birthDateStr: string, currentYear: number = new Date().getFullYear()): number {
+  if (!birthDateStr) return 1;
+  const parts = birthDateStr.split('-').map(Number);
+  if (parts.length < 3) return 1;
+  const [, month, day] = parts;
+
+  const redDay = reduceToSingleDigitOrMaster(day);
+  const redMonth = reduceToSingleDigitOrMaster(month);
+  const redYear = reduceToSingleDigitOrMaster(
+    currentYear.toString().split('').reduce((a, b) => a + Number(b), 0)
+  );
+
+  const sum = redDay + redMonth + redYear;
+  return reduceToSingleDigitOrMaster(sum) % 9 || 9;
+}
+
+export function calculateMaturityNumber(lifePath: number, expression: number): number {
+  return reduceToSingleDigitOrMaster(lifePath + expression);
+}
+
+export const PERSONALITY_DETAILS: Record<number, { title: string; description: string }> = {
+  1: { title: 'Presencia Imponente & Pionera', description: 'Irradias seguridad, porte de liderazgo y una postura firme que inspira respeto instantáneo.' },
+  2: { title: 'Aura Serena & Conciliadora', description: 'Proyectas calma, calidez accesible y una elegancia sutil que invita a la confidencia y el diálogo.' },
+  3: { title: 'Encanto Magnético & Radiante', description: 'Tu primera impresión es vivaz, llena de alegría, estilo personal y facilidad para la risa.' },
+  4: { title: 'Solidez, Confiabilidad & Dignidad', description: 'Te perciben como alguien de palabra intachable, ordenado, profesional y de gran seriedad.' },
+  5: { title: 'Dinamismo Cautivador & Atractivo', description: 'Transmites frescura, ingenio agudo, estilo vanguardista y una energía juvenil irresistible.' },
+  6: { title: 'Calidez Protectora & Armoniosa', description: 'Tu sola presencia reconforta; proyectas generosidad maternal/paternal y buen gusto estético.' },
+  7: { title: 'Misterio Distinguido & Intelectual', description: 'Aura enigmática, refinada y observadora. Inspiras la sensación de guardar secretos y sabiduría.' },
+  8: { title: 'Poder Ejecutivo & Autoridad Natural', description: 'Irradias éxito, porte distinguido, visión estratégica y una capacidad innata para mandar.' },
+  9: { title: 'Nobleza Universal & Altruismo', description: 'Proyectas carisma comprensivo, amplitud de miras y un porte aristocrático con alma abierta.' },
+  11: { title: 'Presencia Eléctrica & Carismática', description: 'Tu mirada y energía transmiten una intensidad espiritual que no pasa desapercibida.' },
+  22: { title: 'Aura de Gran Estadista', description: 'Transmites la serenidad de quien puede construir imperios y transformar realidades a gran escala.' },
+  33: { title: 'Resonancia Sanadora', description: 'Proyectas una devoción pura y una vibración de paz profunda que apacigua el entorno.' }
+};
+
+export const MATURITY_DETAILS: Record<number, { title: string; description: string }> = {
+  1: { title: 'Cosecha de Independencia', description: 'En tu madurez te consolidas como una autoridad indiscutible en tu campo, con total autonomía.' },
+  2: { title: 'Cosecha de Armonía y Vínculos', description: 'Tus años dorados florecen en relaciones enriquecedoras, paz interior y diplomacia consumada.' },
+  3: { title: 'Cosecha de Expresión Creativa', description: 'Florecimiento artístico o comunicativo tardío; una vida llena de júbilo, viajes y vitalidad.' },
+  4: { title: 'Cosecha de Legado Firme', description: 'Consolidación de patrimonio, estabilidad familiar sólida y respeto por las obras construidas.' },
+  5: { title: 'Cosecha de Sabiduría Aventurera', description: 'Una madurez libre de ataduras, enriquecida por viajes, experiencias transformadoras y vitalidad.' },
+  6: { title: 'Cosecha de Hogar y Amor Pleno', description: 'Rodeado de afecto, gratitud comunitaria y un santuario de paz doméstica inquebrantable.' },
+  7: { title: 'Cosecha de Maestría Espiritual', description: 'Consagración como sabio, maestro o consultor; conexión directa con las verdades ocultas.' },
+  8: { title: 'Cosecha de Abundancia y Poder', description: 'Plenitud material, reconocimiento público de tus logros e influencia filantrópica.' },
+  9: { title: 'Cosecha de Iluminación Trascendente', description: 'Desapego victorioso, entrega a causas universales y una profunda sensación de misión cumplida.' },
+  11: { title: 'Cosecha de Iluminación Divina', description: 'Reconocimiento como faro espiritual e inspirador de nuevas generaciones conscientes.' },
+  22: { title: 'Cosecha de Obra Trascendental', description: 'Tus proyectos y creaciones dejan una huella imborrable para la posteridad.' },
+  33: { title: 'Cosecha de Santuario del Amor', description: 'Máxima comunión con la compasión universal y guía espiritual para el colectivo.' }
+};
+
+export const PERSONAL_YEAR_DETAILS: Record<number, { title: string; theme: string; description: string; advice: string }> = {
+  1: {
+    title: 'Año Personal 1: Semilla & Nuevos Comienzos',
+    theme: 'Siembra de Intenciones, Autonomía, Reinicio',
+    description: 'Inicias un ciclo cósmico de 9 años. Momento de tomar decisiones audaces, lanzar nuevos proyectos y confiar en tu liderazgo.',
+    advice: 'No temas empezar desde cero; lo que siembres este año definirá la próxima década.'
+  },
+  2: {
+    title: 'Año Personal 2: Paciencia & Alianzas',
+    theme: 'Gestación, Cooperación, Diplomacia',
+    description: 'Año de ritmo pausado donde las semillas sembradas crecen bajo tierra. Se enfatizan las relaciones, la empatía y el trabajo en equipo.',
+    advice: 'Cultiva la paciencia, evita decisiones apresuradas y fortalece tus lazos afectivos.'
+  },
+  3: {
+    title: 'Año Personal 3: Florecimiento & Expresión',
+    theme: 'Creatividad, Vida Social, Alegría',
+    description: 'El primer brote de la semilla sale a la luz. Tu carisma, magnetismo y capacidad artística están en su punto más alto.',
+    advice: 'Exprésate sin miedo, viaja, comunica y disfruta los frutos de tu entusiasmo.'
+  },
+  4: {
+    title: 'Año Personal 4: Trabajo Firme & Cimientos',
+    theme: 'Estructura, Disciplina, Esfuerzo Práctico',
+    description: 'Año de afianzar raíces y ordenar la estructura de tu vida: salud, finanzas y compromisos tangibles.',
+    advice: 'Enfócate en la constancia y el orden. La dedicación de este año te dará seguridad duradera.'
+  },
+  5: {
+    title: 'Año Personal 5: Transformación & Libertad',
+    theme: 'Cambios Inesperados, Aventura, Expansión',
+    description: 'El punto medio del ciclo trae giros de guion, nuevas oportunidades y vientos de liberación de viejos esquemas.',
+    advice: 'Sé flexible ante los cambios y aprovecha los nuevos horizontes para reinventarte.'
+  },
+  6: {
+    title: 'Año Personal 6: Hogar, Familia & Responsabilidad',
+    theme: 'Compromiso Afectivo, Sanación, Belleza',
+    description: 'La energía se concentra en el hogar, el bienestar de la pareja y seres queridos, y la armonía comunitaria.',
+    advice: 'Nutre tu santuario íntimo, resuelve rencillas con compasión y crea belleza a tu alrededor.'
+  },
+  7: {
+    title: 'Año Personal 7: Introspección & Sabiduría',
+    theme: 'Estudio Espiritual, Silencio, Maduración',
+    description: 'Año sagrado de reflexión interior, descanso consciente y estudio de verdades profundas. Menos acción externa, mayor iluminación interna.',
+    advice: 'Dedica tiempo a la meditación, la naturaleza y el autoconocimiento; no fuerces resultados externos.'
+  },
+  8: {
+    title: 'Año Personal 8: Cosecha & Empoderamiento',
+    theme: 'Manifestación Material, Éxito, Liderazgo',
+    description: 'El año del karma y la retribución. Lo sembrado con rectitud se manifiesta en recompensas económicas, ascenso y poder personal.',
+    advice: 'Maneja tus recursos con sabiduría y ética impecable; reclama tu lugar de abundancia.'
+  },
+  9: {
+    title: 'Año Personal 9: Cierre de Ciclo & Trascendencia',
+    theme: 'Liberación, Perdón, Limpieza Kármica',
+    description: 'El último año del ciclo de 9 años. Tiempo de soltar personas, trabajos o hábitos caducos para dejar espacio al nuevo inicio.',
+    advice: 'Perdona de corazón, haz limpieza profunda y agradece todo lo vivido en este ciclo.'
+  }
+};
+
 export function calculateDailyEnergy(dayOffset = 0) {
   const today = new Date();
   today.setDate(today.getDate() + dayOffset);

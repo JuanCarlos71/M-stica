@@ -13,7 +13,8 @@ const TAB_TITLES: Record<TabType, string> = {
   inicio: 'Inicio',
   quiromancia: 'Quiromancia',
   tarot: 'Tarot Sagrado',
-  astrologia: 'Astrología'
+  astrologia: 'Astrología',
+  numerologia: 'Numerología'
 };
 
 export const Header: React.FC<HeaderProps> = ({

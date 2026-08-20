@@ -6,6 +6,7 @@ import { InicioView } from './components/InicioView';
 import { QuiromanciaView } from './components/QuiromanciaView';
 import { TarotView } from './components/TarotView';
 import { AstrologiaView } from './components/AstrologiaView';
+import { NumerologiaView } from './components/NumerologiaView';
 import { UserProfileModal } from './components/UserProfileModal';
 import { SocialShareModal } from './components/SocialShareModal';
 import { SinastriaModal } from './components/SinastriaModal';
@@ -357,6 +358,15 @@ export default function App() {
             }}
             onShareReading={handleOpenShare}
             onExportPDF={chart => handleExportFullPDF(chart)}
+          />
+        )}
+
+        {currentTab === 'numerologia' && (
+          <NumerologiaView
+            user={user}
+            onSaveReading={handleSaveReading}
+            onShare={handleOpenShare}
+            onOpenProfile={() => setIsProfileModalOpen(true)}
           />
         )}
       </main>

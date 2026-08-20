@@ -188,13 +188,22 @@ export const InicioView: React.FC<InicioViewProps> = ({
             Tu Carta Numerológica
           </h3>
         </div>
-        <button
-          id="edit-numerology-data-btn"
-          onClick={onOpenEditProfile}
-          className="font-sans text-[10px] font-bold text-[#D4AF37] tracking-[0.2em] hover:brightness-125 transition-all uppercase px-3 py-1.5 rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10"
-        >
-          EDITAR DATOS
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="view-all-numerology-btn"
+            onClick={() => onNavigateTab('numerologia')}
+            className="font-sans text-[10px] font-bold text-white tracking-[0.15em] hover:text-[#D4AF37] transition-all uppercase px-3 py-1.5 rounded-full border border-white/20 bg-white/5 hover:bg-white/10"
+          >
+            VER MATRIZ ✦
+          </button>
+          <button
+            id="edit-numerology-data-btn"
+            onClick={onOpenEditProfile}
+            className="font-sans text-[10px] font-bold text-[#D4AF37] tracking-[0.2em] hover:brightness-125 transition-all uppercase px-3 py-1.5 rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10"
+          >
+            EDITAR
+          </button>
+        </div>
       </div>
 
       <div className="px-5 grid grid-cols-1 gap-3.5 mb-6">

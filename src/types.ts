@@ -1,4 +1,4 @@
-export type TabType = 'inicio' | 'quiromancia' | 'tarot' | 'astrologia';
+export type TabType = 'inicio' | 'quiromancia' | 'tarot' | 'astrologia' | 'numerologia';
 
 export interface UserProfile {
   id: string;
