@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile, NatalChart, SavedReading } from '../types';
 import { calculateFullNatalChart, CELESTIAL_EVENTS, ZODIAC_SIGNS } from '../data/astrologyData';
-import { askMysticAI } from '../services/mysticAI';
+import { OracleCustomConsultModal } from './OracleCustomConsultModal';
 import { downloadCalendarICS, openGoogleCalendarEvent } from '../services/calendarExporter';
 import { mysticAudio } from '../services/audioAmbience';
 import confetti from 'canvas-confetti';
@@ -27,8 +27,7 @@ export const AstrologiaView: React.FC<AstrologiaViewProps> = ({
   const [birthPlace, setBirthPlace] = useState(user.birthPlace || 'Santiago, Chile');
   const [isCalculated, setIsCalculated] = useState(true);
   const [activePlanet, setActivePlanet] = useState<any | null>(null);
-  const [aiAstrologyReading, setAiAstrologyReading] = useState<string | null>(null);
-  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [isOracleModalOpen, setIsOracleModalOpen] = useState(false);
 
   const natalChart: NatalChart = calculateFullNatalChart(
     fullName,
@@ -68,21 +67,6 @@ export const AstrologiaView: React.FC<AstrologiaViewProps> = ({
       details: natalChart,
       zodiac: natalChart.sunSign
     });
-  };
-
-  const handleRequestAIAstrology = async () => {
-    setIsLoadingAI(true);
-    const reading = await askMysticAI({
-      type: 'astrologia',
-      prompt: `Interpreta a fondo la carta natal de ${fullName}: Sol en ${natalChart.sunSign}, Luna en ${natalChart.moonSign}, Ascendente en ${natalChart.ascendantSign}. Elemento dominante: ${natalChart.dominantElement}.`,
-      context: {
-        sunSign: natalChart.sunSign,
-        moonSign: natalChart.moonSign,
-        ascendant: natalChart.ascendantSign
-      }
-    });
-    setAiAstrologyReading(reading);
-    setIsLoadingAI(false);
   };
 
   return (
@@ -481,33 +465,14 @@ export const AstrologiaView: React.FC<AstrologiaViewProps> = ({
               </div>
             </div>
 
-            {/* AI Deep Astrology Analysis */}
-            {aiAstrologyReading ? (
-              <div className="bg-white/5 border border-purple-500/40 rounded-[28px] p-5 shadow-2xl animate-fadeIn">
-                <div className="flex items-center gap-2 mb-3 text-purple-300">
-                  <span className="material-symbols-outlined text-xl">auto_awesome</span>
-                  <h4 className="font-serif italic font-bold text-base">
-                    Dictamen Astrológico de Gemini AI
-                  </h4>
-                </div>
-                <p className="text-xs text-gray-200 leading-relaxed whitespace-pre-line">
-                  {aiAstrologyReading}
-                </p>
-              </div>
-            ) : (
-              <button
-                onClick={handleRequestAIAstrology}
-                disabled={isLoadingAI}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-900/40 via-[#D4AF37]/20 to-purple-900/40 border border-[#D4AF37]/40 text-[#D4AF37] font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-[#D4AF37]/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-lg">
-                  {isLoadingAI ? 'sync' : 'psychology'}
-                </span>
-                {isLoadingAI
-                  ? 'Calculando efemérides con Gemini...'
-                  : 'Revelar Misión del Alma con Gemini AI'}
-              </button>
-            )}
+            {/* On-Demand AI Question Trigger */}
+            <button
+              onClick={() => setIsOracleModalOpen(true)}
+              className="w-full py-3.5 rounded-2xl bg-white/5 border border-purple-400/40 text-purple-300 font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+            >
+              <span className="material-symbols-outlined text-lg">psychology</span>
+              ¿Tienes una duda sobre tu carta astral? Preguntar a la IA On-Demand
+            </button>
 
             {/* Real-time Astronomical Events Calendar */}
             <div className="bg-white/5 rounded-[32px] p-5 border border-white/10 shadow-xl">
@@ -583,6 +548,22 @@ export const AstrologiaView: React.FC<AstrologiaViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Oracle Custom Consultation Modal */}
+      <OracleCustomConsultModal
+        isOpen={isOracleModalOpen}
+        onClose={() => setIsOracleModalOpen(false)}
+        user={{ ...user, fullName }}
+        contextModule="astrologia"
+        contextData={{
+          fullName,
+          sunSign: natalChart.sunSign,
+          moonSign: natalChart.moonSign,
+          ascendant: natalChart.ascendantSign,
+          dominantElement: natalChart.dominantElement,
+          planets: natalChart.planets.map(p => `${p.planet} en ${p.sign} (Casa ${p.house})`)
+        }}
+      />
     </div>
   );
 };

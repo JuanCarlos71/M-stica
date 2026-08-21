@@ -1,5 +1,7 @@
+import { MysticConsultType } from '../types';
+
 export interface MysticAIRequest {
-  type: 'quiromancia' | 'tarot' | 'astrologia' | 'numerologia' | 'sinastria' | 'general';
+  type: MysticConsultType;
   prompt: string;
   context?: any;
 }

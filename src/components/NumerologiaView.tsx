@@ -17,6 +17,7 @@ import {
   calculateNumerologySynastry,
   reduceToSingleDigitOrMaster
 } from '../data/numerologyData';
+import { OracleCustomConsultModal } from './OracleCustomConsultModal';
 import { mysticAudio } from '../services/audioAmbience';
 
 interface NumerologiaViewProps {
@@ -61,6 +62,7 @@ export const NumerologiaView: React.FC<NumerologiaViewProps> = ({
   const [synName2, setSynName2] = useState('');
   const [synDate2, setSynDate2] = useState('');
   const [synastryResult, setSynastryResult] = useState<ReturnType<typeof calculateNumerologySynastry> | null>(null);
+  const [isOracleModalOpen, setIsOracleModalOpen] = useState(false);
 
   // Oracle channeling state
   const [oracleQuestion, setOracleQuestion] = useState('');
@@ -885,7 +887,7 @@ export const NumerologiaView: React.FC<NumerologiaViewProps> = ({
             <div className="rounded-3xl bg-black/70 border border-[#D4AF37]/50 p-5 shadow-2xl animate-fade-in space-y-3">
               <div className="flex items-center justify-between border-b border-white/10 pb-2">
                 <span className="text-[10px] uppercase tracking-widest text-[#D4AF37] font-bold">
-                  ✦ Revelación Sagrada
+                  ✦ Revelación Sagrada (0 Tokens)
                 </span>
                 <span className="text-xs text-gray-400">Pitágoras Místico</span>
               </div>
@@ -894,8 +896,34 @@ export const NumerologiaView: React.FC<NumerologiaViewProps> = ({
               </p>
             </div>
           )}
+
+          {/* Optional On-Demand AI Consult Trigger */}
+          <button
+            onClick={() => setIsOracleModalOpen(true)}
+            className="w-full py-3.5 rounded-2xl bg-white/5 border border-purple-400/40 text-purple-300 font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+          >
+            <span className="material-symbols-outlined text-lg">psychology</span>
+            ¿Deseas profundizar con IA? Pregunta libre a Gemini
+          </button>
         </div>
       )}
+
+      {/* Oracle Custom Consultation Modal */}
+      <OracleCustomConsultModal
+        isOpen={isOracleModalOpen}
+        onClose={() => setIsOracleModalOpen(false)}
+        user={user}
+        contextModule="numerologia"
+        contextData={{
+          fullName: user.fullName,
+          birthDate: user.birthDate,
+          lifePath: userLifePath,
+          expression: userNameNums.expression,
+          soulUrge: userNameNums.soulUrge,
+          personality: userNameNums.personality,
+          personalYear: userPersonalYear
+        }}
+      />
 
       {/* DETAIL MODAL FOR ANY CLICKED NUMBER */}
       {selectedNumberDetail && (

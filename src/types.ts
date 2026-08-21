@@ -201,3 +201,5 @@ export interface MoonPhaseInfo {
   ritualAdvice: string;
   nextPeak: string;
 }
+
+export type MysticConsultType = 'quiromancia' | 'tarot' | 'astrologia' | 'numerologia' | 'sinastria' | 'general';

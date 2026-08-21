@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { UserProfile, PalmAnalysis, SavedReading } from '../types';
 import { analyzePalmData } from '../data/palmistryData';
-import { askMysticAI } from '../services/mysticAI';
+import { OracleCustomConsultModal } from './OracleCustomConsultModal';
 import { mysticAudio } from '../services/audioAmbience';
 import confetti from 'canvas-confetti';
 
@@ -29,8 +29,7 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
   const [isCameraLoading, setIsCameraLoading] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<PalmAnalysis | null>(null);
-  const [aiDeepReading, setAiDeepReading] = useState<string | null>(null);
-  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [isOracleModalOpen, setIsOracleModalOpen] = useState(false);
   const [selectedLineInfo, setSelectedLineInfo] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -292,18 +291,6 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
         });
       }
     }, 450);
-  };
-
-  const requestAiOracleReading = async () => {
-    if (!analysisResult) return;
-    setIsLoadingAI(true);
-    const reading = await askMysticAI({
-      type: 'quiromancia',
-      prompt: `Lectura profunda de la ${handSide === 'left' ? 'mano izquierda (dones innatos)' : 'mano derecha (destino manifiesto)'}. Elemento: ${analysisResult.element}. Vitalidad: ${analysisResult.vitalityScore}%. Consultante: ${user.fullName || 'Iniciado'}.`,
-      context: { handSide, result: analysisResult }
-    });
-    setAiDeepReading(reading);
-    setIsLoadingAI(false);
   };
 
   return (
@@ -762,31 +749,14 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
               </p>
             </div>
 
-            {/* AI Deep Reading Option */}
-            {aiDeepReading ? (
-              <div className="bg-white/5 border border-purple-500/40 rounded-2xl p-4 mb-5 animate-fadeIn">
-                <div className="flex items-center gap-2 mb-2 text-purple-300">
-                  <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
-                  <span className="font-serif italic font-bold text-sm">
-                    Revelación Profunda de Gemini Oracle
-                  </span>
-                </div>
-                <p className="text-xs text-gray-200 leading-relaxed whitespace-pre-line">
-                  {aiDeepReading}
-                </p>
-              </div>
-            ) : (
-              <button
-                onClick={requestAiOracleReading}
-                disabled={isLoadingAI}
-                className="w-full mb-5 bg-white/5 border border-purple-400/40 text-purple-300 font-bold uppercase tracking-[0.2em] py-3.5 rounded-2xl text-[10px] hover:bg-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">
-                  {isLoadingAI ? 'sync' : 'psychology'}
-                </span>
-                {isLoadingAI ? 'Consultando al Oráculo IA...' : 'Pedir Revelación Detallada a Gemini'}
-              </button>
-            )}
+            {/* On-Demand AI Question Trigger */}
+            <button
+              onClick={() => setIsOracleModalOpen(true)}
+              className="w-full mb-5 bg-white/5 border border-purple-400/40 text-purple-300 font-bold uppercase tracking-[0.2em] py-3.5 rounded-2xl text-[10px] hover:bg-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">psychology</span>
+              ¿Tienes una duda sobre tus líneas? Preguntar a la IA On-Demand
+            </button>
 
             {/* Action buttons */}
             <div className="grid grid-cols-2 gap-3">
@@ -812,6 +782,23 @@ export const QuiromanciaView: React.FC<QuiromanciaViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Oracle Custom Consultation Modal */}
+      {analysisResult && (
+        <OracleCustomConsultModal
+          isOpen={isOracleModalOpen}
+          onClose={() => setIsOracleModalOpen(false)}
+          user={user}
+          contextModule="quiromancia"
+          contextData={{
+            handSide: analysisResult.handSide,
+            element: analysisResult.element,
+            vitalityScore: analysisResult.vitalityScore,
+            intuitionScore: analysisResult.intuitionScore,
+            lines: analysisResult.lines.map(l => `${l.name}: ${l.depth} — ${l.reading}`)
+          }}
+        />
       )}
     </div>
   );

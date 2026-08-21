@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { UserProfile, TarotCard, DrawnCard, TarotSpread, SavedReading } from '../types';
 import { MAJOR_ARCANA, TAROT_SPREADS } from '../data/tarotDeck';
-import { askMysticAI } from '../services/mysticAI';
+import { generateLocalTarotSynthesis } from '../data/tarotSynthesisEngine';
+import { OracleCustomConsultModal } from './OracleCustomConsultModal';
 import { mysticAudio } from '../services/audioAmbience';
 import confetti from 'canvas-confetti';
 
@@ -22,8 +23,8 @@ export const TarotView: React.FC<TarotViewProps> = ({
   const [drawnCards, setDrawnCards] = useState<DrawnCard[]>([]);
   const [flippedIndex, setFlippedIndex] = useState<Record<number, boolean>>({});
   const [activeCardModal, setActiveCardModal] = useState<DrawnCard | null>(null);
-  const [aiReading, setAiReading] = useState<string | null>(null);
-  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [localSynthesis, setLocalSynthesis] = useState<string | null>(null);
+  const [isOracleModalOpen, setIsOracleModalOpen] = useState(false);
 
   // Shuffle deck
   const handleShuffle = () => {
@@ -31,7 +32,7 @@ export const TarotView: React.FC<TarotViewProps> = ({
     mysticAudio.playChime();
     setDrawnCards([]);
     setFlippedIndex({});
-    setAiReading(null);
+    setLocalSynthesis(null);
 
     setTimeout(() => {
       const shuffled = [...MAJOR_ARCANA].sort(() => Math.random() - 0.5);
@@ -74,6 +75,15 @@ export const TarotView: React.FC<TarotViewProps> = ({
         colors: ['#dcb8ff', '#f2ca50', '#ffe088']
       });
 
+      // Generate instantaneous local database synthesis (0 tokens)
+      const syn = generateLocalTarotSynthesis(
+        selectedSpread.name,
+        updated,
+        user.fullName,
+        user.zodiacSign || 'Aries'
+      );
+      setLocalSynthesis(syn);
+
       // Automatically record in user history
       onSaveReading({
         id: `tarot-${Date.now()}`,
@@ -91,29 +101,7 @@ export const TarotView: React.FC<TarotViewProps> = ({
   const handleReset = () => {
     setDrawnCards([]);
     setFlippedIndex({});
-    setAiReading(null);
-  };
-
-  // Ask Gemini AI for complete spread synthesis
-  const handleRequestAISynthesis = async () => {
-    if (drawnCards.length === 0) return;
-    setIsLoadingAI(true);
-    const reading = await askMysticAI({
-      type: 'tarot',
-      prompt: `Realiza una interpretación integral de la tirada de Tarot "${selectedSpread.name}". Las cartas extraídas son:\n` +
-        drawnCards
-          .map(
-            d => `- ${d.positionName}: ${d.card.name} (${d.isReversed ? 'Invertida' : 'Al Derecho'}). Significado de posición: ${d.positionMeaning}`
-          )
-          .join('\n') +
-        `\nConsultante: ${user.fullName || 'Iniciado'} (Signo ${user.zodiacSign}).`,
-      context: {
-        spread: selectedSpread.name,
-        cards: drawnCards.map(d => d.card.name)
-      }
-    });
-    setAiReading(reading);
-    setIsLoadingAI(false);
+    setLocalSynthesis(null);
   };
 
   const isSpreadComplete = drawnCards.length === selectedSpread.cardCount;
@@ -287,36 +275,37 @@ export const TarotView: React.FC<TarotViewProps> = ({
         </div>
       )}
 
-      {/* Reading Interpretations & AI Synthesis when complete */}
+      {/* Reading Interpretations & Local Synthesis when complete */}
       {isSpreadComplete && (
         <div className="space-y-4 animate-fadeIn">
-          {/* AI Oracle Button or Text */}
-          {aiReading ? (
-            <div className="bg-white/5 border border-purple-500/40 rounded-[28px] p-5 shadow-2xl">
-              <div className="flex items-center gap-2 mb-3 text-purple-300">
-                <span className="material-symbols-outlined text-xl">auto_awesome</span>
-                <h4 className="font-serif italic font-bold text-base">
-                  Síntesis del Oráculo Celestial Gemini
-                </h4>
+          {/* Instant Local Database Synthesis (0 Tokens) */}
+          {localSynthesis && (
+            <div className="bg-gradient-to-b from-[#1f0d36]/90 to-[#0c0517] border border-[#D4AF37]/40 rounded-[28px] p-5 shadow-2xl space-y-3">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                <div className="flex items-center gap-2 text-[#D4AF37]">
+                  <span className="material-symbols-outlined text-xl">auto_awesome</span>
+                  <h4 className="font-serif italic font-bold text-base text-white">
+                    Interpretación Magistral del Templo
+                  </h4>
+                </div>
+                <span className="text-[9px] bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#D4AF37] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                  0 Tokens ✦ Local
+                </span>
               </div>
               <p className="text-xs text-gray-200 leading-relaxed whitespace-pre-line">
-                {aiReading}
+                {localSynthesis}
               </p>
             </div>
-          ) : (
-            <button
-              onClick={handleRequestAISynthesis}
-              disabled={isLoadingAI}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-900/40 via-[#D4AF37]/20 to-purple-900/40 border border-[#D4AF37]/40 text-[#D4AF37] font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-[#D4AF37]/20 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-lg">
-                {isLoadingAI ? 'sync' : 'psychology'}
-              </span>
-              {isLoadingAI
-                ? 'Conectando con el plano de los arcanos...'
-                : 'Revelar Interpretación Integral con Gemini AI'}
-            </button>
           )}
+
+          {/* Optional On-Demand AI Consult Trigger */}
+          <button
+            onClick={() => setIsOracleModalOpen(true)}
+            className="w-full py-3.5 rounded-2xl bg-white/5 border border-purple-400/40 text-purple-300 font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-white/10 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-lg">psychology</span>
+            ¿Tienes una duda específica? Preguntar a la IA On-Demand
+          </button>
 
           {/* Individual Card Interpretations List */}
           <div className="space-y-3">
@@ -366,6 +355,18 @@ export const TarotView: React.FC<TarotViewProps> = ({
           </button>
         </div>
       )}
+
+      {/* Oracle Custom Consultation Modal */}
+      <OracleCustomConsultModal
+        isOpen={isOracleModalOpen}
+        onClose={() => setIsOracleModalOpen(false)}
+        user={user}
+        contextModule="tarot"
+        contextData={{
+          spread: selectedSpread.name,
+          cards: drawnCards.map(d => `${d.positionName}: ${d.card.name} (${d.isReversed ? 'Invertida' : 'Al Derecho'})`)
+        }}
+      />
 
       {/* Card Detail Modal */}
       {activeCardModal && (
